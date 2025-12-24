@@ -1,0 +1,20 @@
+# --- Python & IDE ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+
+# --- Large Models (Optional but recommended) ---
+# The code will auto-download this if missing, so don't push it.
+*.pt
+*.onnx
+
+# --- Security (VERY IMPORTANT) ---
+# Never push certificates or secrets
+ca.crt
+.env
+
+# --- Docker ---
+Dockerfile.dockerignore
