@@ -3,7 +3,7 @@ import json
 import cv2
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
 import paho.mqtt.client as mqtt
 import os
@@ -16,7 +16,7 @@ CONF_THRESHOLD = 0.4
 
 MQTT_BROKER = "mqtt-broker.local"  # Set to 'localhost' for local testing
 MQTT_PORT = 8883
-MQTT_TOPIC = "atm/session" # Updated topic
+MQTT_TOPIC = "atm/session" 
 
 MQTT_USERNAME = "backend"
 MQTT_PASSWORD = "user"
@@ -25,13 +25,21 @@ CA_CERT_PATH = "ca.crt"
 HOST = "0.0.0.0"
 PORT = 8000
 
+SAVE_DIR = "./images"  # Directory to save images
+
+# -----------------------
+# SETUP DIRECTORY
+# -----------------------
+if not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)
+
 # -----------------------
 # APP + MODEL
 # -----------------------
 app = FastAPI(
-    title="ATM Session Detection API",
-    description="YOLOv8 Detection to Trigger ATM Sessions",
-    version="2.0"
+    title="ATM Demo Detection API",
+    description="Single Camera Demo with Image Saving",
+    version="3.0"
 )
 
 print(f"Loading model {MODEL_NAME}...")
@@ -43,7 +51,7 @@ print("Model loaded.")
 # -----------------------
 mqtt_client = None
 try:
-    mqtt_client = mqtt.Client(client_id="ai-yolo-session")
+    mqtt_client = mqtt.Client(client_id="ai-yolo-demo")
     mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     
     if os.path.exists(CA_CERT_PATH):
@@ -60,19 +68,18 @@ except Exception as e:
 # -----------------------
 # STATE MANAGEMENT
 # -----------------------
-# Stores boolean state: { "camera_01": True/False }
-# True = Session is currently active
-# False/None = No session
-camera_sessions = {}
+# Simple boolean for single camera demo
+session_active = False
 
 # -----------------------
 # API ENDPOINT
 # -----------------------
 @app.post("/detect/session", tags=["Session"])
 async def detect_session(
-    camera_id: str = Form(..., description="ID of the camera source"),
     file: UploadFile = File(..., description="Image frame to analyze")
 ):
+    global session_active
+
     # 1. Read and Decode
     image_bytes = await file.read()
     np_img = np.frombuffer(image_bytes, np.uint8)
@@ -85,28 +92,35 @@ async def detect_session(
     results = model(frame, conf=CONF_THRESHOLD, verbose=False)
     person_count = 0
     
+    # Draw boxes on the frame for visualization
+    annotated_frame = results[0].plot() 
+
     for r in results:
         for box in r.boxes:
             if int(box.cls[0]) == 0: # Class 0 is Person
                 person_count += 1
 
-    # 3. Session Logic
-    is_active = camera_sessions.get(camera_id, False)
+    # 3. Save Image locally
+    timestamp = int(time.time())
+    filename = f"{SAVE_DIR}/detect_{timestamp}.jpg"
+    cv2.imwrite(filename, annotated_frame) # Save the frame with boxes drawn
+
+    # 4. Session Logic (Simplified for Demo)
     mqtt_status = "idle"
     session_event = "none"
 
     # RULE: If person count changes to 1, start session.
     if person_count == 1:
-        if not is_active:
+        if not session_active:
             # --- START NEW SESSION ---
             session_event = "started"
-            camera_sessions[camera_id] = True # Set flag to active
+            session_active = True
             
             payload = {
-                "camera_id": camera_id,
                 "event": "session_start",
                 "person_count": person_count,
-                "timestamp": int(time.time())
+                "timestamp": timestamp,
+                "image_path": filename
             }
 
             if mqtt_client:
@@ -116,24 +130,20 @@ async def detect_session(
                 except Exception as e:
                     mqtt_status = f"error: {e}"
         else:
-            # --- SESSION ALREADY ACTIVE ---
-            # Do nothing, session continues
             session_event = "ongoing"
     
     else:
         # --- RESET SESSION ---
-        # If person count is 0 (empty) or > 1 (crowd), end the session state
-        # so it can trigger again next time it becomes exactly 1.
-        if is_active:
-            session_event = "ended" # Optional: You could publish a "session_end" here if needed
-            camera_sessions[camera_id] = False
+        if session_active:
+            session_event = "ended"
+            session_active = False
         else:
             session_event = "none"
 
     return {
-        "camera_id": camera_id,
         "people": person_count,
         "session_state": session_event,
+        "saved_image": filename,
         "mqtt": mqtt_status
     }
 
