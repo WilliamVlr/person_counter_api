@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 import os
 
 # CONFIG
-MODEL_NAME = "yolov8n.pt"
+MODEL_NAME = "yolov8n.pt" # change to face detection model.pt for more precise detection
 CONF_THRESHOLD = 0.85
 
 MQTT_BROKER = "mqtt-broker.local" # change as needed (IP Broker/DNS)
