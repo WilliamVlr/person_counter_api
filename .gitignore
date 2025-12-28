@@ -8,7 +8,7 @@ venv/
 
 # --- Large Models (Optional but recommended) ---
 # The code will auto-download this if missing, so don't push it.
-*.pt
+yolo*.pt
 *.onnx
 
 # --- Security (VERY IMPORTANT) ---
