@@ -11,7 +11,7 @@ import os
 # -----------------------
 # CONFIG
 # -----------------------
-MODEL_NAME = "yolov8n.pt"
+MODEL_NAME = "model.pt"
 CONF_THRESHOLD = 0.4
 
 MQTT_BROKER = "mqtt-broker.local"  # Set to 'localhost' for local testing
