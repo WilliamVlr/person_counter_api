@@ -11,7 +11,7 @@ import os
 # -----------------------
 # CONFIG
 # -----------------------
-MODEL_NAME = "model.pt"
+MODEL_NAME = "yolov8n.pt"
 CONF_THRESHOLD = 0.4
 
 MQTT_BROKER = "mqtt-broker.local"  # Set to 'localhost' for local testing
@@ -74,7 +74,7 @@ session_active = False
 # -----------------------
 # API ENDPOINT
 # -----------------------
-@app.post("/detect/session", tags=["Session"])
+@app.post("/person-detect", tags=["Session"])
 async def detect_session(
     file: UploadFile = File(..., description="Image frame to analyze")
 ):
@@ -89,7 +89,7 @@ async def detect_session(
         return {"error": "Could not decode image"}
 
     # 2. Inference
-    results = model(frame, conf=CONF_THRESHOLD, verbose=False)
+    results = model(frame, conf=CONF_THRESHOLD,classes=[0], verbose=False)
     person_count = 0
     
     # Draw boxes on the frame for visualization
